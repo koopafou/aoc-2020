@@ -1,0 +1,4 @@
+#!/bin/bash
+
+make -f ${1}/../../Makefile SRC=${1} DST=${2}
+exit $?

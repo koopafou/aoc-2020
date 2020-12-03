@@ -1,0 +1,87 @@
+#!/bin/bash
+
+ARG_RNAME=
+ARG_DAY=
+ARG_INAME=
+
+while getopts n:d:i: OPTNAME ; do
+		case ${OPTNAME} in
+				n)  ARG_RNAME=${OPTARG};;
+				d)  ARG_DAY=${OPTARG};;
+				i)  ARG_INAME=${OPTARG};;
+				\?)
+				echo "Usage : ./run.sh -n N -d D -i I" 1>&2
+				echo "The script compiles necessary programs to execute and prints the results." 1>&2
+				echo "Outputs are cached so you can try different combinations without having to execute again." 1>&2
+				echo "  N is the name of the contestant to execute. Remove the option to print a summary for every contestant." 1>&2
+				echo "  D is the day to be tested. Remove the option to print a summary for every day." 1>&2
+				echo "  I is optional and defaults to N, the name of the contestant to take input from." 1>&2
+				exit 1
+				;;
+		esac
+done
+
+if [ -n "${ARG_RNAME}" -a ! -d submissions/${ARG_RNAME} ] ; then
+		echo "Unknown name" ${ARG_RNAME} 1>&2
+		exit 1
+fi
+
+if [ -n "${ARG_INAME}" -a ! -d submissions/${ARG_INAME} ] ; then
+		echo "Unknown input name" ${ARG_INAME} 1>&2
+		exit 1
+fi
+
+if [ -n "${ARG_DAY}" -a ! -d submissions/test/days/${ARG_DAY} ] ; then
+		echo "Unknown day" ${ARG_DAY} 1>&2
+		if [ -n "${ARG_RNAME}" -a ! -d submissions/${ARG_RNAME}/days/${ARG_DAY} ] ; then
+				echo "User" ${ARG_RNAME} "does not have day" ${ARG_DAY} 1>&2
+				exit 1
+		fi
+		if [ -n "${ARG_INAME}" -a ! -d submissions/${ARG_INAME}/days/${ARG_DAY} ] ; then
+				echo "User" ${ARG_RNAME} "does not have day" ${ARG_DAY} 1>&2
+				exit 1
+		fi
+fi
+
+echo "NAME=${ARG_RNAME}"
+echo "DAY=${ARG_DAY}"
+echo "INPUT=${ARG_INAME}"
+
+mkdir -p build
+rm -f build/outputlist
+touch build/outputlist
+
+(test -z "${ARG_RNAME}" && ls -1 submissions || echo ${ARG_RNAME}) | while read RNAME ; do
+		if [ ! -e submissions/${RNAME}/build ] ; then
+				continue
+		fi
+		(test -z "${ARG_DAY}" && ls -1 submissions/${RNAME}/days || echo ${ARG_DAY}) | while read DAY ; do
+				BUILDPATH=build/submissions/${RNAME}/${DAY}
+				mkdir -p ${BUILDPATH}
+				RUNSTAMP=0
+				if [ -e ${BUILDPATH}/run ] ; then
+						RUNSTAMP=`stat -c %Y ${BUILDPATH}/run`
+				fi
+				echo "============ BUILD ${BUILDPATH} ============" 1>&2
+				if submissions/${RNAME}/build submissions/${RNAME}/days/${DAY} ${BUILDPATH} ; then
+						NEWRUNSTAMP=`stat -c %Y ${BUILDPATH}/run`
+						if [ ${RUNSTAMP} != ${NEWRUNSTAMP} ] ; then
+								rm -rf build/submissions/${RNAME}/${DAY}/outputs
+						fi
+						(test -z "${ARG_INAME}" && ls -1 submissions || echo ${ARG_INAME}) | while read INAME ; do
+								ls -1 submissions/${INAME}/days/${DAY}/ | grep -E '^input' | while read INPUTFILE ; do
+										INPATH=submissions/${INAME}/days/${DAY}/${INPUTFILE}
+										OUTPATH=build/submissions/${RNAME}/${DAY}/outputs/${INAME}/output${INPUTFILE:5}
+										mkdir -p `dirname ${OUTPATH}`
+										if [ ! -e ${OUTPATH} -o ${INPATH} -nt ${OUTPATH} ] ; then
+												echo "============ ${BUILDPATH}/run < ${INPATH} > ${OUTPATH} ============" 1>&2
+												${BUILDPATH}/run < ${INPATH} > ${OUTPATH}
+										fi
+										echo ${OUTPATH} >> build/outputlist
+								done
+						done
+				fi
+		done
+done
+
+(wc -l < build/outputlist | xargs test 1 =) && (cat build/outputlist | xargs cat) || echo "Multiple tests were run, TODO statistics"
