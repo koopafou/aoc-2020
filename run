@@ -69,13 +69,18 @@ touch build/outputlist
 								rm -rf build/submissions/${RNAME}/${DAY}/outputs
 						fi
 						(test -z "${ARG_INAME}" && ls -1 submissions || echo ${ARG_INAME}) | while read INAME ; do
+								ARGS=
+								if [ ${INAME} == "test" -a -e submissions/${INAME}/days/${DAY}/args ] ; then
+										ARGS=$(cat submissions/${INAME}/days/${DAY}/args)
+								fi
 								ls -1 submissions/${INAME}/days/${DAY}/ | grep -E '^input' | while read INPUTFILE ; do
 										INPATH=submissions/${INAME}/days/${DAY}/${INPUTFILE}
 										OUTPATH=build/submissions/${RNAME}/${DAY}/outputs/${INAME}/output${INPUTFILE:5}
 										mkdir -p `dirname ${OUTPATH}`
 										if [ ! -e ${OUTPATH} -o ${INPATH} -nt ${OUTPATH} ] ; then
-												echo "============ ${BUILDPATH}/run < ${INPATH} > ${OUTPATH} ============" 1>&2
-												${BUILDPATH}/run < ${INPATH} > ${OUTPATH}
+												echo "============ ${BUILDPATH}/run ${ARGS} < ${INPATH} > ${OUTPATH} ============" 1>&2
+												${BUILDPATH}/run ${ARGS} < ${INPATH} > ${OUTPATH}
+												echo "============ return = $? ============" 1>&2
 										fi
 										echo ${OUTPATH} >> build/outputlist
 								done
