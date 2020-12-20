@@ -81,6 +81,7 @@ touch build/outputlist
 												echo "============ ${BUILDPATH}/run ${ARGS} < ${INPATH} > ${OUTPATH} ============" 1>&2
 												${BUILDPATH}/run ${ARGS} < ${INPATH} > ${OUTPATH}
 												echo "============ return = $? ============" 1>&2
+												cat ${OUTPATH}
 										fi
 										echo ${OUTPATH} >> build/outputlist
 								done
@@ -89,4 +90,4 @@ touch build/outputlist
 		done
 done
 
-(wc -l < build/outputlist | xargs test 1 =) && (cat build/outputlist | xargs cat) || echo "Multiple tests were run, TODO statistics"
+#(wc -l < build/outputlist | xargs test 1 =) && (cat build/outputlist | xargs cat) || echo "Multiple tests were run, TODO statistics"

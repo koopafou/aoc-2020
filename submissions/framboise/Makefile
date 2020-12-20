@@ -1,5 +1,5 @@
 
-CXXFLAGS=-std=c++20 -mfpmath=sse -msse2
+CXXFLAGS=-std=c++20 -mfpmath=sse -msse2 -g
 PKGLIST=fmt
 -include ${SRC}/Makefile
 
