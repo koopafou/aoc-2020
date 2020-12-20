@@ -46,35 +46,53 @@ struct Ruleset {
 		}
 	}
 
+	const std::string* str_in;
+	std::vector<std::vector<std::vector<u32>>> cache; // [rule index] [str_in index] -> match_terms
+	// the vector to index with the string index is overkill (should be map) but whatever
+
 	// don't even need to optimize by selecting preferential alts depending on the next char to read ?
-	using It = std::string::const_iterator;
-	bool word_match_impl (It begin, It end, u16 r, It& match_term) {
+	auto& word_match_impl (u16 r, u32 begin) {
+		auto& match_terms = cache[r][begin];
+		if (match_terms.size())
+			return match_terms;
 		for (auto& seq : rules[r]) {
-			It sub_mt = begin;
-			bool match = true;
+			std::vector<u32> seq_mts = {begin};
 			for (auto& atom : seq) {
+				std::vector<u32> dst_seq_mts;
 				if (atom.subrule == UINT16_MAX) {
-					if (sub_mt != end && atom.c == *sub_mt)
-						++sub_mt;
-					else
-						match = false;
+					for (u32 mt : seq_mts)
+						if (mt < str_in->size() && atom.c == (*str_in)[mt])
+							dst_seq_mts.push_back(mt + 1);
 				} else {
-					match = word_match_impl(sub_mt, end, atom.subrule, sub_mt);
+					for (u32 mt : seq_mts) {
+						if (mt < str_in->size()) {
+							auto& sub_mts = word_match_impl(atom.subrule, mt);
+							if (sub_mts[0] != UINT32_MAX)
+								dst_seq_mts.insert(dst_seq_mts.end(), sub_mts.begin(), sub_mts.end());
+						}
+					}
 				}
-				if (!match)
-					break;
+				std::swap(seq_mts, dst_seq_mts);
 			}
-			if (match) {
-				match_term = sub_mt;
-				return true;
-			}
+			match_terms.insert(match_terms.end(), seq_mts.begin(), seq_mts.end());
 		}
-		return false;
+		// TODO remove duplicates in match_terms
+		if (match_terms.empty())
+			match_terms.push_back(UINT32_MAX);
+		return match_terms;
 	}
 
 	bool word_match (const std::string& str) {
-		It end;
-		return word_match_impl(str.begin(), str.end(), 0, end) && end == str.end();
+		cache.clear();
+		cache.resize(rules.size());
+		for (auto& rulecache : cache)
+			rulecache.resize(str.size());
+		str_in = &str;
+		auto& match_terms = word_match_impl(0, 0);
+		for (u32 mt : match_terms)
+			if (mt == str.size())
+				return true;
+		return false;
 	}
 };
 
